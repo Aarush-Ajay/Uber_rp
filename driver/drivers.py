@@ -1,19 +1,15 @@
 import psycopg2
 import os
-import random
 import uuid
-import sys
+import random
 
-# --- Database Setup (Must match main.py) ---
+# --- Database Configuration (Must match main.py) ---
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_NAME = os.environ.get("DB_NAME", "Uber_rp")
 DB_USER = os.environ.get("DB_USER", "postgres")
-DB_PASS = os.environ.get("DB_PASS", "Aarush")
+DB_PASS = os.environ.get("DB_PASS", "chiragb07")
 DB_PORT = os.environ.get("DB_PORT", "5432")
-# ------------------------------------------
-
-# Define the status options (must match the Enum in main.py)
-DRIVER_STATUSES = ["off", "in a drive", "accepting"]
+# ---------------------------------------------
 
 def get_db_connection():
     """Establishes and returns a connection to the PostgreSQL database."""
@@ -27,45 +23,56 @@ def get_db_connection():
         )
         return conn
     except psycopg2.OperationalError as e:
-        print(f"[DRIVER SIMULATOR] Database connection failed: {e}")
+        print(f"[DRIVER SIMULATOR] ERROR: Database connection failed: {e}")
         return None
 
-def create_new_driver():
-    """Generates a unique driver and inserts them into the drivers table."""
+def generate_random_location():
+    """Generates a random location string that matches the Location Enum keys in match_worker.py."""
+    # These strings must match the keys in the Location Enum, including spaces.
+    locations = ["Downtown Core", "Central Station", "University Area", "The Suburbs", "Airport Terminal"]
+    return random.choice(locations)
+
+def simulate_driver():
+    """Creates a new driver with a random initial status and inserts into the database."""
     conn = get_db_connection()
     if not conn:
-        sys.exit(1)
+        print("[DRIVER SIMULATOR] Failed to run due to DB connection error.")
+        return
+
+    driver_id = "DRV-" + uuid.uuid4().hex[:6].upper()
+    # Use an underscore for simple logging and consistency
+    first_name = random.choice(["Alex", "Ben", "Charlie", "Dana", "Emily", "Frank"])
+    last_name = random.choice(["Smith", "Jones", "Chen", "Lee", "Singh"])
+    driver_name = f"{first_name}_{last_name}" 
     
-    cursor = conn.cursor()
-    
-    # Generate unique ID and random status
-    driver_id = f"DRV-{uuid.uuid4().hex[:8].upper()}"
-    driver_name = f"Driver {random.randint(1, 999)}"
-    initial_status = random.choice(DRIVER_STATUSES)
-    
+    # Status randomization: Now ONLY chooses between 'accepting' and 'off'.
+    status = random.choice(["accepting", "off"]) 
+    location = generate_random_location()
+
     try:
+        cursor = conn.cursor()
+        
+        # Insert the new driver into the drivers table
         cursor.execute(
             """
-            INSERT INTO drivers (driver_id, name, status)
-            VALUES (%s, %s, %s);
+            INSERT INTO drivers (driver_id, name, status, current_location)
+            VALUES (%s, %s, %s, %s);
             """,
-            (driver_id, driver_name, initial_status)
+            (driver_id, driver_name, status, location)
         )
         conn.commit()
         
-        print(f"\n--- DRIVER SIMULATOR STARTED ---")
-        print(f"Driver ID: {driver_id}")
-        print(f"Name: {driver_name}")
-        print(f"Initial Status: {initial_status.upper()}")
-        print(f"Status will be periodically updated by a real-world system.")
-        print(f"--------------------------------")
+        print(f"\n[DRIVER SIMULATOR] NEW DRIVER ADDED: {driver_name}")
+        print(f"  ID: {driver_id}, Location: {location}")
+        print(f"  Initial Status: {status.upper()}")
         
     except psycopg2.Error as e:
         conn.rollback()
-        print(f"[DRIVER SIMULATOR] Error inserting driver: {e}")
+        print(f"[DRIVER SIMULATOR] ERROR: Database insertion failed. Driver was not added: {e}")
+        
     finally:
-        cursor.close()
-        conn.close()
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
-    create_new_driver()
+    simulate_driver()

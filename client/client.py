@@ -9,7 +9,7 @@ import json
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_NAME = os.environ.get("DB_NAME", "Uber_rp")
 DB_USER = os.environ.get("DB_USER", "postgres")
-DB_PASS = os.environ.get("DB_PASS", "Aarush")
+DB_PASS = os.environ.get("DB_PASS", "chiragb07")
 DB_PORT = os.environ.get("DB_PORT", "5432")
 
 SERVER_API_URL = "http://127.0.0.1:8000/api/request-ride"
