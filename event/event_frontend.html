@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityRide Events Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fc; }
+        /* Style the main dashboard toggle */
+        #dashboard-toggle {
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .customer-active {
+            background-color: #3b82f6; /* Blue 500 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5);
+        }
+        .organizer-active {
+            background-color: #10b981; /* Emerald 500 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.5);
+        }
+        .event-card {
+            background: white;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+        .event-card:hover {
+            transform: translateY(-3px);
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'uber-black': '#1E1E1E',
+                        'uber-green': '#06C167',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="message-box" class="fixed top-4 right-4 p-4 rounded-lg z-50 transition-opacity duration-300 opacity-0 hidden shadow-xl" role="alert"></div>
+
+    <div class="max-w-4xl mx-auto rounded-xl bg-white shadow-2xl p-6 md:p-10">
+        
+        <!-- Header and Mode Switch -->
+        <header class="mb-8 border-b pb-4 flex flex-col md:flex-row justify-between items-center">
+            <h1 class="text-3xl font-extrabold text-uber-black tracking-tight mb-4 md:mb-0">CityRide Events Hub</h1>
+            <div class="flex items-center space-x-2 p-1 bg-gray-100 rounded-full">
+                <span id="customer-mode" class="customer-active" onclick="switchMode('customer')">
+                    Customer View
+                </span>
+                <span id="organizer-mode" class="text-gray-600 hover:bg-gray-200" onclick="switchMode('organizer')">
+                    Organizer Dashboard
+                </span>
+            </div>
+        </header>
+
+        <!-- CUSTOMER VIEW: Browse and Book -->
+        <div id="customer-view" class="space-y-8">
+            <div class="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+                <p class="text-sm text-blue-800 font-medium flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Find an event below and book a seamless round-trip ride instantly.
+                </p>
+            </div>
+
+            <!-- Customer Input Section -->
+            <div class="p-6 border rounded-xl space-y-4">
+                <h2 class="text-xl font-semibold text-uber-black">Your Ride Details</h2>
+                <input type="text" id="customer-user-id" placeholder="Your User ID (e.g., USER-123)" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <input type="text" id="customer-source" placeholder="Your Current Location (e.g., Downtown Core)" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                <select id="trip-type" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <option value="round-trip">Round-Trip (To Event & Back Home)</option>
+                    <option value="one-way">One-Way (To Event Only)</option>
+                </select>
+            </div>
+
+            <!-- Event Listings -->
+            <h2 class="text-2xl font-bold text-gray-700">Upcoming Events</h2>
+            <div id="event-list" class="grid gap-6">
+                <!-- Event cards will be injected here -->
+            </div>
+            <p id="loading-events" class="text-gray-500 text-center">Loading events...</p>
+        </div>
+
+        <!-- ORGANIZER VIEW: Create/Update Events -->
+        <div id="organizer-view" class="space-y-8 hidden">
+            <h2 class="text-2xl font-bold text-emerald-600 mb-6">Organizer Dashboard</h2>
+            
+            <div class="bg-emerald-50 border-l-4 border-emerald-400 p-4 rounded-lg">
+                <p class="text-sm text-emerald-800 font-medium">
+                    Create new listings, update event times, and manage exclusive ride discounts.
+                </p>
+            </div>
+
+            <div class="p-6 border border-emerald-300 rounded-xl space-y-4">
+                <h3 class="text-xl font-semibold text-emerald-700">Create New Event</h3>
+                <input type="text" id="org-id" value="ORG-ALPHA" placeholder="Organizer ID" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                <input type="text" id="event-name" placeholder="Event Name (e.g., Summer Concert Series)" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                <input type="text" id="venue-location" placeholder="Venue Location (e.g., Airport Terminal)" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                <input type="datetime-local" id="event-time" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" id="promo-code" placeholder="PROMO CODE (Optional)" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                    <input type="number" id="discount-rate" placeholder="Discount Rate (e.g., 0.15 for 15%)" value="0.00" step="0.01" min="0" max="1"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+                <button onclick="handleCreateEvent()" 
+                        class="w-full py-3 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition duration-150">
+                    Publish Event
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // API Configuration (Main Orchestrator Port 8000, Event Server Port 8080)
+        const EVENT_SERVER_URL = "http://127.0.0.1:8080";
+        
+        // --- UI UTILITIES ---
+        
+        function showMessage(message, type = 'success') {
+            const box = document.getElementById('message-box');
+            let color, icon;
+
+            if (type === 'success') {
+                color = 'bg-uber-green border-uber-green';
+                icon = '<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>';
+            } else if (type === 'error') {
+                color = 'bg-red-500 border-red-500';
+                icon = '<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>';
+            } else { // info
+                color = 'bg-yellow-500 border-yellow-500';
+                icon = '<svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M10 20a10 10 0 110-20 10 10 0 010 20zm-1-8a1 1 0 012 0v5a1 1 0 11-2 0v-5zm1-7a1 1 0 100 2 1 1 0 000-2z"></path></svg>';
+            }
+
+            box.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-opacity duration-300 shadow-xl opacity-100 ${color} text-white`;
+            box.innerHTML = `<div class="flex items-center">${icon}<span>${message}</span></div>`;
+            box.style.display = 'block';
+
+            setTimeout(() => {
+                box.className = `fixed top-4 right-4 p-4 rounded-lg z-50 transition-opacity duration-300 opacity-0 hidden shadow-xl`;
+            }, 5000);
+        }
+
+        function switchMode(mode) {
+            const customerView = document.getElementById('customer-view');
+            const organizerView = document.getElementById('organizer-view');
+            const customerToggle = document.getElementById('customer-mode');
+            const organizerToggle = document.getElementById('organizer-mode');
+
+            if (mode === 'customer') {
+                customerView.classList.remove('hidden');
+                organizerView.classList.add('hidden');
+                customerToggle.classList.add('customer-active');
+                customerToggle.classList.remove('text-gray-600', 'hover:bg-gray-200');
+                organizerToggle.classList.remove('organizer-active');
+                organizerToggle.classList.add('text-gray-600', 'hover:bg-gray-200');
+                loadEvents();
+            } else {
+                customerView.classList.add('hidden');
+                organizerView.classList.remove('hidden');
+                organizerToggle.classList.add('organizer-active');
+                organizerToggle.classList.remove('text-gray-600', 'hover:bg-gray-200');
+                customerToggle.classList.remove('customer-active');
+                customerToggle.classList.add('text-gray-600', 'hover:bg-gray-200');
+            }
+        }
+
+        // --- CUSTOMER LOGIC ---
+
+        function createEventCard(event) {
+            const timeOptions = { hour: 'numeric', minute: '2-digit', month: 'short', day: 'numeric' };
+            const timeStr = new Date(event.time).toLocaleDateString('en-US', timeOptions);
+            const discountPill = event.discount > 0 ? 
+                `<span class="text-xs font-semibold inline-block py-1 px-3 uppercase rounded-full text-red-600 bg-red-200 last:mr-0 mr-1">
+                    ${(event.discount * 100).toFixed(0)}% OFF Ride!
+                </span>` : '';
+
+            return `
+                <div class="event-card rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center">
+                    <div class="mb-4 md:mb-0">
+                        <h3 class="text-xl font-bold text-uber-black">${event.name}</h3>
+                        <p class="text-gray-500 text-sm mb-2">Venue: ${event.venue}</p>
+                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                            <svg class="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>
+                            <span>${timeStr}</span>
+                        </div>
+                        ${discountPill}
+                    </div>
+                    <button onclick="handleBookRide(${event.id}, '${event.name}')" 
+                            class="bg-uber-green text-white py-2 px-4 rounded-lg font-semibold hover:bg-green-700 transition duration-150 whitespace-nowrap">
+                        Book Ride
+                    </button>
+                </div>
+            `;
+        }
+
+        async function loadEvents() {
+            const eventList = document.getElementById('event-list');
+            const loading = document.getElementById('loading-events');
+            eventList.innerHTML = '';
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch(`${EVENT_SERVER_URL}/api/events`);
+                const data = await response.json();
+
+                if (response.ok && data.events.length > 0) {
+                    const cards = data.events.map(createEventCard).join('');
+                    eventList.innerHTML = cards;
+                } else {
+                    eventList.innerHTML = '<p class="text-gray-500 text-center p-8 border rounded-lg">No active events currently listed.</p>';
+                }
+            } catch (error) {
+                eventList.innerHTML = '<p class="text-red-500 text-center p-8 border rounded-lg">Error connecting to Event Server (Port 8080). Please ensure it is running.</p>';
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        async function handleBookRide(eventId, eventName) {
+            const userId = document.getElementById('customer-user-id').value;
+            const userSource = document.getElementById('customer-source').value;
+            const tripType = document.getElementById('trip-type').value;
+
+            if (!userId || !userSource) {
+                showMessage("Please enter your User ID and current location.", 'error');
+                return;
+            }
+
+            showMessage(`Booking ride for ${eventName}...`, 'info');
+
+            try {
+                const response = await fetch(`${EVENT_SERVER_URL}/api/events/book`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        event_id: eventId,
+                        user_source: userSource,
+                        trip_type: tripType
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    const fromMsg = tripType === 'round-trip' ? ` and return ride ID ${data.ride_from_id}` : '';
+                    showMessage(`SUCCESS! Ride to ${eventName} booked. Ride ID ${data.ride_to_id}${fromMsg}. Matching driver now...`, 'success');
+                } else {
+                    showMessage(`Booking Failed: ${data.detail || 'Unknown error.'}`, 'error');
+                }
+
+            } catch (error) {
+                showMessage(`CRITICAL ERROR: Could not reach event server (Port 8080).`, 'error');
+            }
+        }
+
+        // --- ORGANIZER LOGIC ---
+
+        async function handleCreateEvent() {
+            const orgId = document.getElementById('org-id').value;
+            const name = document.getElementById('event-name').value;
+            const venue = document.getElementById('venue-location').value;
+            const time = document.getElementById('event-time').value;
+            const promo = document.getElementById('promo-code').value || null;
+            const discount = parseFloat(document.getElementById('discount-rate').value);
+
+            if (!orgId || !name || !venue || !time) {
+                showMessage("Please fill in all required event details.", 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${EVENT_SERVER_URL}/api/organizer/events`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        organizer_id: orgId,
+                        name: name,
+                        venue_location: venue,
+                        event_time: time + ':00Z', // FastAPI expects Zulu time format
+                        promo_code: promo,
+                        discount_rate: discount,
+                        is_active: true
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showMessage(`Event '${name}' published successfully! ID: ${data.event_id}`, 'success');
+                    // Clear fields after successful submission (except organizer ID)
+                    document.getElementById('event-name').value = '';
+                    document.getElementById('venue-location').value = '';
+                    document.getElementById('event-time').value = '';
+                    document.getElementById('promo-code').value = '';
+                    document.getElementById('discount-rate').value = '0.00';
+                } else {
+                    showMessage(`Publishing Failed: ${data.detail || 'Unknown error.'}`, 'error');
+                }
+
+            } catch (error) {
+                showMessage(`CRITICAL ERROR: Could not reach event server (Port 8080).`, 'error');
+            }
+        }
+
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEvents();
+        });
+    </script>
+</body>
+</html>
