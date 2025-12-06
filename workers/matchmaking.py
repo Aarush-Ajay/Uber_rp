@@ -8,19 +8,17 @@ import random
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_NAME = os.environ.get("DB_NAME", "Uber_rp")
 DB_USER = os.environ.get("DB_USER", "postgres")
-DB_PASS = os.environ.get("DB_PASS", "chiragb07")
+DB_PASS = os.environ.get("DB_PASS", "Aarush")
 DB_PORT = os.environ.get("DB_PORT", "5432")
 # ---------------------------------------------
 
 # --- Location Enum for Proximity Matching ---
-# The value is used for distance calculation (e.g., Downtown=10, Airport=50)
 class Location(Enum):
-    # Note: Keys must match the string stored in the database exactly
-    Downtown_Core = 10
-    Central_Station = 20
-    University_Area = 30
-    The_Suburbs = 40
-    Airport_Terminal = 50
+    # Key must match "Wilson_Garden" for input "Wilson Garden"
+    Basavangudi = 1
+    Koramangala = 2
+    Wilson_Garden = 3
+    Airport = 5
 
 def get_db_connection():
     """Establishes and returns a connection to the PostgreSQL database."""

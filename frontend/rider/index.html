@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityRide - Rider Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../config.js"></script>
+    <style>
+        .tab-active {
+            border-bottom: 2px solid black;
+            color: black;
+            font-weight: bold;
+        }
+
+        .tab-inactive {
+            color: gray;
+        }
+
+        /* Hide scrollbar for clean UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-sans h-screen flex flex-col">
+
+    <div class="bg-black text-white p-4 sticky top-0 z-50 shadow-md">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <h1 class="text-xl font-bold flex items-center">
+                <span class="text-green-500 text-2xl mr-2">●</span> CityRide
+            </h1>
+            <div class="text-xs bg-gray-800 px-2 py-1 rounded">User: RIDER-001</div>
+        </div>
+    </div>
+
+    <div class="max-w-md mx-auto w-full flex-1 flex flex-col relative bg-white shadow-2xl overflow-hidden">
+
+        <div class="flex border-b">
+            <button onclick="switchTab('events')" id="tab-events" class="flex-1 py-4 text-center tab-active">
+                🎉 Events
+            </button>
+            <button onclick="switchTab('standard')" id="tab-standard" class="flex-1 py-4 text-center tab-inactive">
+                🚖 Regular Ride
+            </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto no-scrollbar p-4 space-y-6 pb-24 relative">
+
+            <div id="view-events" class="space-y-4">
+                <h2 class="text-lg font-bold text-gray-800">Upcoming Events</h2>
+                <div id="event-list" class="space-y-4">
+                    <p class="text-gray-400 text-center mt-10">Loading events...</p>
+                </div>
+            </div>
+
+            <div id="view-standard" class="hidden space-y-4">
+                <div class="bg-gray-100 p-4 rounded-xl">
+                    <label class="text-xs font-bold text-gray-500">PICKUP</label>
+                    <select id="std-source"
+                        class="w-full bg-transparent p-2 border-b border-gray-300 font-semibold mb-4 outline-none">
+                        <option value="Wilson Garden">Wilson Garden</option>
+                        <option value="Basavangudi">Basavangudi</option>
+                        <option value="Koramangala">Koramangala</option>
+                        <option value="Airport">Airport</option>
+                    </select>
+
+                    <label class="text-xs font-bold text-gray-500">DESTINATION</label>
+                    <select id="std-dest"
+                        class="w-full bg-transparent p-2 border-b border-gray-300 font-semibold outline-none">
+                        <option value="Koramangala">Koramangala</option>
+                        <option value="Wilson Garden">Wilson Garden</option>
+                        <option value="Basavangudi">Basavangudi</option>
+                        <option value="Airport">Airport</option>
+                    </select>
+                </div>
+                <button onclick="bookStandard()"
+                    class="w-full bg-black text-white py-4 rounded-xl font-bold shadow-lg hover:bg-gray-800 transform transition active:scale-95">
+                    Find Driver
+                </button>
+            </div>
+
+        </div>
+
+        <div id="status-sheet"
+            class="absolute bottom-0 left-0 w-full bg-white border-t-2 border-green-500 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] p-6 transform translate-y-full transition-transform duration-300">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Ride Status</p>
+                    <h3 id="status-title" class="text-xl font-extrabold text-gray-800 mt-1">Searching...</h3>
+                    <p id="driver-info" class="text-sm text-gray-600 mt-1 hidden">Your driver is on the way.</p>
+                </div>
+                <div id="status-icon"
+                    class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl animate-pulse">
+                    📡
+                </div>
+            </div>
+            <div id="completed-actions" class="hidden mt-4">
+                <button onclick="resetRide()" class="w-full py-3 bg-green-100 text-green-700 font-bold rounded-lg">Book
+                    Another Ride</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="event-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+            <h3 id="modal-event-name" class="text-xl font-bold mb-1">Event Name</h3>
+            <p id="modal-event-venue" class="text-sm text-gray-500 mb-4">Venue Location</p>
+
+            <div class="bg-gray-50 p-3 rounded-lg mb-4">
+                <label class="text-xs font-bold text-gray-400">YOUR PICKUP</label>
+                <select id="event-source" class="w-full bg-transparent font-bold p-1 outline-none">
+                    <option value="Wilson Garden">Wilson Garden</option>
+                    <option value="Basavangudi">Basavangudi</option>
+                    <option value="Koramangala">Koramangala</option>
+                    <option value="Airport">Airport</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <label
+                    class="border p-3 rounded-lg flex flex-col items-center cursor-pointer hover:bg-gray-50 has-[:checked]:border-black has-[:checked]:bg-gray-100 transition">
+                    <input type="radio" name="tripType" value="one-way" class="hidden" checked>
+                    <span class="text-2xl">➔</span>
+                    <span class="text-xs font-bold mt-1">One-Way</span>
+                </label>
+                <label
+                    class="border p-3 rounded-lg flex flex-col items-center cursor-pointer hover:bg-gray-50 has-[:checked]:border-black has-[:checked]:bg-gray-100 transition">
+                    <input type="radio" name="tripType" value="round-trip" class="hidden">
+                    <span class="text-2xl">⇄</span>
+                    <span class="text-xs font-bold mt-1">Round-Trip</span>
+                </label>
+            </div>
+
+            <button onclick="confirmEventBooking()" class="w-full bg-black text-white py-3 rounded-xl font-bold">
+                Confirm & Pay
+            </button>
+            <button onclick="closeModal()" class="w-full mt-2 text-gray-500 text-sm py-2">Cancel</button>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        const USER_ID = "RIDER-001";
+        let currentRideId = null;
+        let pollInterval = null;
+        let selectedEventId = null;
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEvents();
+        });
+
+        // --- TAB SWITCHING ---
+        function switchTab(tab) {
+            const eventsView = document.getElementById('view-events');
+            const stdView = document.getElementById('view-standard');
+            const tabEvt = document.getElementById('tab-events');
+            const tabStd = document.getElementById('tab-standard');
+
+            if (tab === 'events') {
+                eventsView.classList.remove('hidden');
+                stdView.classList.add('hidden');
+                tabEvt.className = "flex-1 py-4 text-center tab-active";
+                tabStd.className = "flex-1 py-4 text-center tab-inactive";
+            } else {
+                eventsView.classList.add('hidden');
+                stdView.classList.remove('hidden');
+                tabStd.className = "flex-1 py-4 text-center tab-active";
+                tabEvt.className = "flex-1 py-4 text-center tab-inactive";
+            }
+        }
+
+        // --- EVENTS LOGIC ---
+        async function loadEvents() {
+            const list = document.getElementById('event-list');
+            try {
+                const res = await fetch(`${CONFIG.EVENT_API}/api/events`);
+                const data = await res.json();
+
+                list.innerHTML = '';
+                if (data.events.length === 0) {
+                    list.innerHTML = '<p class="text-center text-gray-400 mt-10">No active events found.</p>';
+                    return;
+                }
+
+                data.events.forEach(evt => {
+                    // Format Date
+                    const date = new Date(evt.time.replace(' ', 'T')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+                    const card = `
+                        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex justify-between items-center">
+                            <div>
+                                <p class="text-xs font-bold text-red-500 uppercase mb-1">${date}</p>
+                                <h3 class="font-bold text-gray-800 text-lg leading-tight">${evt.name}</h3>
+                                <p class="text-sm text-gray-500">${evt.venue}</p>
+                                <p class="text-xs mt-2 text-gray-400">Tickets Left: ${evt.capacity - evt.sold}</p>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="font-bold text-lg mb-2">$${evt.ticket_price}</span>
+                                <button onclick="openModal(${evt.id}, '${evt.name}', '${evt.venue}')" 
+                                    class="bg-black text-white text-sm px-4 py-2 rounded-lg font-bold hover:bg-gray-800">
+                                    Book
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    list.innerHTML += card;
+                });
+
+            } catch (e) {
+                list.innerHTML = '<p class="text-red-500 text-center">Error loading events. Is Event Server (8080) running?</p>';
+            }
+        }
+
+        function openModal(id, name, venue) {
+            selectedEventId = id;
+            document.getElementById('modal-event-name').innerText = name;
+            document.getElementById('modal-event-venue').innerText = venue;
+            document.getElementById('event-modal').classList.remove('hidden');
+            document.getElementById('event-modal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('event-modal').classList.add('hidden');
+            document.getElementById('event-modal').classList.remove('flex');
+        }
+
+        async function confirmEventBooking() {
+            const source = document.getElementById('event-source').value;
+            const tripType = document.querySelector('input[name="tripType"]:checked').value;
+
+            closeModal();
+            showStatusSheet(true);
+
+            try {
+                const res = await fetch(`${CONFIG.EVENT_API}/api/events/book`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: USER_ID,
+                        event_id: selectedEventId,
+                        user_source: source,
+                        trip_type: tripType
+                    })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    // Track the "Ride To" ID
+                    currentRideId = data.ride_to_id;
+                    startPolling();
+                } else {
+                    alert("Booking Failed: " + data.detail);
+                    showStatusSheet(false);
+                }
+            } catch (e) {
+                alert("Network Error");
+                showStatusSheet(false);
+            }
+        }
+
+        // --- STANDARD RIDE LOGIC ---
+        async function bookStandard() {
+            const source = document.getElementById('std-source').value;
+            const dest = document.getElementById('std-dest').value;
+
+            if (source === dest) return alert("Pickup and Destination cannot be the same.");
+
+            showStatusSheet(true);
+
+            try {
+                const res = await fetch(`${CONFIG.CORE_API}/api/request-ride`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: USER_ID, source_location: source, destination_location: dest })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    currentRideId = data.request_id;
+                    startPolling();
+                } else {
+                    alert("Error: " + data.detail);
+                    showStatusSheet(false);
+                }
+            } catch (e) {
+                alert("Server Error");
+                showStatusSheet(false);
+            }
+        }
+
+        // --- POLLING & STATUS UI ---
+        function showStatusSheet(show) {
+            const sheet = document.getElementById('status-sheet');
+            if (show) {
+                sheet.classList.remove('translate-y-full');
+                document.getElementById('status-title').innerText = "Searching for Driver...";
+                document.getElementById('status-icon').innerHTML = "📡";
+                document.getElementById('driver-info').classList.add('hidden');
+                document.getElementById('completed-actions').classList.add('hidden');
+            } else {
+                sheet.classList.add('translate-y-full');
+            }
+        }
+
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`${CONFIG.CORE_API}/api/ride-status/${currentRideId}`);
+                    const data = await res.json();
+
+                    if (data.status === 'matched') {
+                        document.getElementById('status-title').innerText = "Driver Found!";
+                        document.getElementById('status-title').classList.add('text-green-600');
+                        document.getElementById('driver-info').innerText = `${data.driver_info.name} (${data.driver_info.current_location})`;
+                        document.getElementById('driver-info').classList.remove('hidden');
+                        document.getElementById('status-icon').innerHTML = "🚖";
+                        document.getElementById('status-icon').classList.remove('animate-pulse');
+                        document.getElementById('status-icon').classList.add('bg-green-100', 'text-green-600');
+                    }
+                    else if (data.status === 'completed') {
+                        clearInterval(pollInterval);
+                        document.getElementById('status-title').innerText = "Arrived!";
+                        document.getElementById('status-title').classList.remove('text-green-600');
+                        document.getElementById('driver-info').innerText = "Thank you for riding.";
+                        document.getElementById('status-icon').innerHTML = "🏁";
+                        document.getElementById('completed-actions').classList.remove('hidden');
+                    }
+                } catch (e) { console.log("Poll error"); }
+            }, 2000);
+        }
+
+        function resetRide() {
+            showStatusSheet(false);
+            loadEvents(); // Refresh capacity counts
+        }
+
+    </script>
+</body>
+
+</html>

@@ -12,8 +12,7 @@ TOTAL_REQUESTS = 1000
 MAX_WORKERS = 50 # Number of threads to run concurrently (adjust based on your CPU/network)
 
 # These locations must match the Enum keys in your worker scripts
-LOCATIONS = ["Downtown Core", "Central Station", "University Area", "The Suburbs", "Airport Terminal"]
-
+LOCATIONS = ["Wilson Garden", "Basavangudi", "Koramangala", "Airport"]
 # ---------------------
 
 def generate_payload():

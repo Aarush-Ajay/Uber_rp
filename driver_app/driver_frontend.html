@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uber Driver App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 font-sans">
+
+    <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg">
+        <div class="bg-black text-white p-6">
+            <h1 class="text-2xl font-bold">Uber Driver</h1>
+            <div class="mt-4 flex space-x-2">
+                <input type="text" id="driver-id" placeholder="Enter Driver ID (e.g. DRV-001)"
+                    class="flex-1 p-2 rounded text-black" value="DRV-TEST">
+                <button onclick="checkStatus()" class="bg-green-500 px-4 py-2 rounded font-bold">Go Online</button>
+            </div>
+        </div>
+
+        <div id="active-ride-panel" class="p-6 hidden bg-blue-50 border-b-4 border-blue-500">
+            <h2 class="text-xl font-bold text-blue-900 mb-2">🔴 Current Trip</h2>
+            <div class="bg-white p-4 rounded shadow mb-4">
+                <p class="text-gray-500 text-sm">PASSENGER</p>
+                <p class="text-lg font-semibold" id="ar-user">User-123</p>
+                <hr class="my-2">
+                <p class="text-gray-500 text-sm">FROM</p>
+                <p class="font-medium" id="ar-from">Downtown</p>
+                <div class="pl-2 border-l-2 border-gray-300 my-1 ml-1 h-4"></div>
+                <p class="text-gray-500 text-sm">TO</p>
+                <p class="font-medium" id="ar-to">Airport</p>
+            </div>
+            <button onclick="completeRide()"
+                class="w-full bg-green-600 text-white py-4 rounded-xl font-bold text-lg shadow-lg">
+                COMPLETE RIDE
+            </button>
+        </div>
+
+        <div id="available-rides-panel" class="p-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">Available Requests</h2>
+            <button onclick="loadPendingRides()" class="text-sm text-blue-500 mb-4 underline">Refresh List</button>
+
+            <div id="rides-list" class="space-y-4">
+                <p class="text-gray-500 text-center mt-10">No rides available right now.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000"; // Main Server Port
+        let currentRideId = null;
+
+        async function checkStatus() {
+            const driverId = document.getElementById('driver-id').value;
+            if (!driverId) return alert("Enter Driver ID");
+
+            // 1. Register driver instantly to ensure they exist in DB
+            try {
+                await fetch(`${API_URL}/api/register-driver`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ driver_id: driverId, name: "Human Driver", current_location: "Downtown Core" })
+                });
+            } catch (e) { console.log("Driver exists or DB error"); }
+
+            // 2. Check for active ride
+            const res = await fetch(`${API_URL}/api/driver/my-ride/${driverId}`);
+            const data = await res.json();
+
+            if (data.active_ride) {
+                showActiveRide(data.active_ride);
+            } else {
+                showAvailablePanel();
+                loadPendingRides();
+            }
+        }
+
+        function showActiveRide(ride) {
+            currentRideId = ride.id;
+            document.getElementById('active-ride-panel').classList.remove('hidden');
+            document.getElementById('available-rides-panel').classList.add('hidden');
+
+            document.getElementById('ar-user').innerText = ride.user;
+            document.getElementById('ar-from').innerText = ride.from;
+            document.getElementById('ar-to').innerText = ride.to;
+        }
+
+        function showAvailablePanel() {
+            currentRideId = null;
+            document.getElementById('active-ride-panel').classList.add('hidden');
+            document.getElementById('available-rides-panel').classList.remove('hidden');
+        }
+
+        async function loadPendingRides() {
+            const res = await fetch(`${API_URL}/api/driver/pending-rides`);
+            const data = await res.json();
+            const list = document.getElementById('rides-list');
+            list.innerHTML = '';
+
+            if (data.rides.length === 0) {
+                list.innerHTML = '<p class="text-gray-500 text-center">No pending rides.</p>';
+                return;
+            }
+
+            data.rides.forEach(ride => {
+                const card = `
+                    <div class="bg-white p-4 rounded-lg shadow border-l-4 border-black flex justify-between items-center">
+                        <div>
+                            <p class="font-bold text-lg">$25.00</p>
+                            <p class="text-sm text-gray-600">${ride.from} ➔ ${ride.to}</p>
+                        </div>
+                        <button onclick="acceptRide(${ride.id})" class="bg-black text-white px-4 py-2 rounded font-bold">
+                            ACCEPT
+                        </button>
+                    </div>
+                `;
+                list.innerHTML += card;
+            });
+        }
+
+        async function acceptRide(rideId) {
+            const driverId = document.getElementById('driver-id').value;
+            const res = await fetch(`${API_URL}/api/driver/accept-ride?ride_id=${rideId}&driver_id=${driverId}`, { method: 'POST' });
+
+            if (res.ok) {
+                checkStatus(); // Refresh UI
+            } else {
+                alert("Could not accept ride. It may have been taken.");
+            }
+        }
+
+        async function completeRide() {
+            const driverId = document.getElementById('driver-id').value;
+            if (!currentRideId) return;
+
+            const res = await fetch(`${API_URL}/api/driver/complete-ride?ride_id=${currentRideId}&driver_id=${driverId}`, { method: 'POST' });
+
+            if (res.ok) {
+                alert("Ride Completed! Payment received.");
+                checkStatus();
+            } else {
+                alert("Error completing ride.");
+            }
+        }
+
+        // Auto-refresh if online
+        setInterval(() => {
+            if (!document.getElementById('active-ride-panel').classList.contains('hidden')) return; // Don't refresh if in a ride
+            const driverId = document.getElementById('driver-id').value;
+            if (driverId) loadPendingRides();
+        }, 5000);
+
+    </script>
+</body>
+
+</html>

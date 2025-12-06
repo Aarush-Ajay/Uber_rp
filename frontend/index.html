@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uber_Events</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="config.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        #dashboard-map {
+            height: 350px;
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            z-index: 0;
+        }
+
+        #setup-map {
+            height: 300px;
+            width: 100%;
+            border-radius: 12px;
+            margin: 10px 0;
+            z-index: 0;
+        }
+
+        #org-map {
+            height: 250px;
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            z-index: 0;
+        }
+
+        .input-active {
+            border-color: #000;
+            background-color: #F3F4F6;
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .toggle-checkbox {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: transform 0.2s ease-in-out;
+            z-index: 10;
+        }
+
+        .toggle-checkbox:checked {
+            transform: translateX(100%);
+            border-color: #10B981;
+        }
+
+        .toggle-checkbox:checked+.toggle-label {
+            background-color: #10B981;
+        }
+
+        .toggle-label {
+            width: 100%;
+            height: 100%;
+            border-radius: 9999px;
+            background-color: #D1D5DB;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .tab-active {
+            border-bottom: 2px solid black;
+            color: black;
+            font-weight: bold;
+        }
+
+        .tab-inactive {
+            color: gray;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 font-sans h-screen flex flex-col overflow-hidden">
+
+    <div id="login-view" class="absolute inset-0 z-50 bg-black flex items-center justify-center p-6">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md text-center space-y-6">
+            <h1 class="text-3xl font-extrabold text-gray-900">Uber_Events</h1>
+            <div class="flex justify-center space-x-4 text-sm font-bold border-b pb-2">
+                <button onclick="toggleAuthMode('login')" id="tab-login"
+                    class="text-black border-b-2 border-black w-1/2 pb-1">LOGIN</button>
+                <button onclick="toggleAuthMode('signup')" id="tab-signup" class="text-gray-400 w-1/2 pb-1">SIGN
+                    UP</button>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <button onclick="setRole('rider')" id="btn-rider"
+                    class="py-3 rounded-lg font-bold border-2 border-transparent bg-gray-100 hover:bg-gray-200">Rider</button>
+                <button onclick="setRole('driver')" id="btn-driver"
+                    class="py-3 rounded-lg font-bold border-2 border-transparent bg-gray-100 hover:bg-gray-200">Driver</button>
+                <button onclick="setRole('organizer')" id="btn-organizer"
+                    class="py-3 rounded-lg font-bold border-2 border-transparent bg-gray-100 hover:bg-gray-200">Organizer</button>
+            </div>
+            <div id="auth-form" class="space-y-4 text-left">
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Username</label><input
+                        type="text" id="auth-username" class="w-full p-3 border rounded-lg outline-none bg-gray-50">
+                </div>
+                <div><label class="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label><input
+                        type="password" id="auth-password" class="w-full p-3 border rounded-lg outline-none bg-gray-50">
+                </div>
+                <div id="field-interest" class="hidden">
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Interest</label>
+                    <select id="auth-interest" class="w-full p-3 border rounded-lg bg-white outline-none">
+                        <option>Tech</option>
+                        <option>Art</option>
+                        <option>Science</option>
+                        <option>Comedy</option>
+                    </select>
+                </div>
+                <button onclick="handleAuth()" id="auth-submit-btn"
+                    class="w-full bg-black text-white py-4 rounded-xl font-bold mt-4">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="setup-view" class="absolute inset-0 z-40 bg-white hidden flex-col items-center justify-center p-6 fade-in">
+        <div
+            class="w-full max-w-md space-y-4 text-center bg-white rounded-2xl p-4 shadow-xl border border-gray-100 h-full max-h-[80vh] flex flex-col">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-900">Welcome!</h2>
+                <p class="text-gray-500 text-sm">Set your location to start.</p>
+            </div>
+            <div id="setup-map" class="flex-1 w-full rounded-xl bg-gray-100"></div>
+            <div class="flex gap-2 w-full"><input type="text" id="setup-loc-input"
+                    class="flex-1 p-3 border rounded-lg outline-none text-sm" placeholder="Search Area..."
+                    onkeydown="if(event.key==='Enter') searchSetupLoc()"><button onclick="searchSetupLoc()"
+                    class="bg-gray-200 p-3 rounded-lg font-bold hover:bg-gray-300">🔍</button><button
+                    onclick="detectSetupLoc()"
+                    class="bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700">📍</button></div>
+            <input type="hidden" id="setup-lat"><input type="hidden" id="setup-lng">
+            <button onclick="finishSetup()"
+                class="w-full bg-black text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:bg-gray-800">Confirm
+                Location</button>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden flex-1 flex flex-col h-full relative z-0">
+        <header class="bg-black text-white p-4 shadow-md flex justify-between items-center">
+            <h1 class="text-lg font-bold"><span id="role-badge"
+                    class="bg-blue-500 text-xs px-2 py-1 rounded mr-2 text-white font-bold">ROLE</span> Uber_Events</h1>
+            <button onclick="performLogout()" class="text-xs text-gray-400 hover:text-white">Logout</button>
+        </header>
+        <main class="flex-1 overflow-y-auto p-4 space-y-6 relative">
+
+            <div id="rider-dashboard" class="hidden h-full flex flex-col">
+                <div class="flex border-b mb-4"><button onclick="switchRiderTab('general')" id="tab-general"
+                        class="flex-1 py-3 text-center tab-active">🚖 General Ride</button><button
+                        onclick="switchRiderTab('events')" id="tab-events"
+                        class="flex-1 py-3 text-center tab-inactive">🎉 Events</button></div>
+
+                <div id="view-general" class="flex-1 flex flex-col space-y-4 fade-in relative">
+                    <div id="dashboard-map" class="map-box"></div>
+                    <div class="bg-white p-4 rounded-xl shadow border border-gray-200 space-y-3">
+                        <div onclick="setMapMode('pickup')" id="box-pickup"
+                            class="p-2 border rounded cursor-pointer transition input-active"><label
+                                class="text-[10px] font-bold text-blue-500 uppercase">Pickup</label><input type="text"
+                                id="gen-pickup" class="w-full font-bold bg-transparent outline-none text-sm"
+                                placeholder="Tap map" readonly></div>
+                        <div onclick="setMapMode('dest')" id="box-dest"
+                            class="p-2 border rounded cursor-pointer transition"><label
+                                class="text-[10px] font-bold text-red-500 uppercase">Destination</label><input
+                                type="text" id="gen-dest" class="w-full font-bold bg-transparent outline-none text-sm"
+                                placeholder="Tap map or Search" readonly></div>
+                        <div class="flex gap-2"><input type="text" id="map-search" placeholder="Search area..."
+                                class="flex-1 border rounded px-2 text-sm"><button onclick="searchGenMap()"
+                                class="bg-gray-200 px-3 rounded font-bold">🔍</button></div>
+                        <input type="hidden" id="gen-dest-lat"><input type="hidden" id="gen-dest-lng">
+                        <button onclick="bookGeneralRide()"
+                            class="w-full bg-black text-white py-3 rounded-lg font-bold">Find Driver</button>
+                    </div>
+                </div>
+
+                <div id="view-events" class="hidden space-y-4 fade-in">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center">
+                            <div class="bg-blue-50 text-blue-800 px-3 py-1 rounded-full text-sm font-bold mr-2">❤️ <span
+                                    id="rider-interest-display"></span></div>
+                            <select id="dynamic-interest" class="text-xs border rounded p-1 bg-white"
+                                onchange="updateInterest(this.value)">
+                                <option value="Tech">Tech</option>
+                                <option value="Art">Art</option>
+                                <option value="Science">Science</option>
+                                <option value="Comedy">Comedy</option>
+                            </select>
+                        </div>
+                        <button onclick="loadRiderEvents()" class="text-xs text-blue-600 underline">Refresh</button>
+                    </div>
+                    <div id="event-list" class="space-y-4 text-center py-10 text-gray-500">Loading events...</div>
+                </div>
+            </div>
+
+            <div id="rider-event-mode"
+                class="hidden flex flex-col items-center justify-center h-full text-center space-y-6 fade-in pb-20">
+                <div
+                    class="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center text-4xl shadow-inner">
+                    🎉</div>
+                <div>
+                    <h2 class="text-2xl font-extrabold text-gray-900">Enjoy the Event!</h2>
+                    <p class="text-gray-500 mt-2">Your return ride is reserved.</p>
+                </div>
+                <div class="bg-white p-4 rounded shadow w-full max-w-xs">
+                    <p class="text-xs text-gray-400 uppercase font-bold">Return Trip To</p>
+                    <p class="text-lg font-bold" id="evt-return-dest">Home</p>
+                </div>
+                <button onclick="activateReturnRide()"
+                    class="w-full bg-black text-white py-4 rounded-xl font-bold text-lg shadow-xl hover:bg-gray-800">Call
+                    Driver Now</button>
+            </div>
+
+            <div id="driver-dashboard" class="hidden space-y-4 fade-in text-center">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 flex justify-between items-center">
+                    <span class="font-bold text-gray-700" id="dash-status-text">🔴 OFFLINE</span>
+                    <div class="relative inline-block w-12 h-6 align-middle select-none"><input type="checkbox"
+                            id="dash-driver-toggle"
+                            class="toggle-checkbox block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"><label
+                            for="dash-driver-toggle"
+                            class="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"></label></div>
+                </div>
+                <div id="driver-content" class="hidden">
+                    <div id="driver-requests" class="space-y-3 text-left"></div>
+                </div>
+                <div id="driver-active-ride" class="hidden bg-black text-white p-6 rounded-xl shadow-xl text-left">
+                    <h2 class="text-2xl font-bold mb-4" id="ar-user">USER</h2>
+                    <div class="flex justify-between mb-6">
+                        <div>
+                            <p class="text-xs text-gray-500">FROM</p>
+                            <p id="ar-from">A</p>
+                        </div>
+                        <div>➔</div>
+                        <div>
+                            <p class="text-xs text-gray-500">TO</p>
+                            <p id="ar-to">B</p>
+                        </div>
+                    </div>
+                    <button onclick="completeRide()"
+                        class="w-full bg-white text-black font-bold py-3 rounded-lg hover:bg-gray-200">COMPLETE
+                        RIDE</button>
+                </div>
+                <div id="driver-empty-state" class="hidden py-10 text-gray-400">
+                    <p class="text-4xl mb-2">📡</p>
+                    <p>Searching for rides...</p>
+                </div>
+            </div>
+
+            <div id="organizer-dashboard" class="hidden h-full flex flex-col">
+                <div class="flex border-b mb-4">
+                    <button onclick="switchOrgTab('create')" id="tab-org-create"
+                        class="flex-1 py-3 text-center tab-active">Create</button>
+                    <button onclick="switchOrgTab('stats')" id="tab-org-stats"
+                        class="flex-1 py-3 text-center tab-inactive">Live Stats</button>
+                </div>
+
+                <div id="view-org-create" class="flex-1 overflow-y-auto space-y-3 fade-in">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">Publish Event</h2>
+                    <div id="org-map" class="map-box"></div>
+                    <input id="org-name" type="text" placeholder="Name" class="w-full p-3 border rounded">
+                    <div class="flex gap-2"><input id="org-venue" type="text" placeholder="Search Venue"
+                            class="flex-1 p-3 border rounded"
+                            onkeydown="if(event.key === 'Enter') searchOrganizerVenue()"><button
+                            onclick="searchOrganizerVenue()" class="bg-gray-200 p-3 rounded font-bold">🔍</button></div>
+                    <input type="hidden" id="org-lat"><input type="hidden" id="org-lng">
+                    <p id="org-venue-status" class="text-xs text-gray-500">Location not set</p>
+                    <select id="org-type" class="w-full p-3 border rounded">
+                        <option>Tech</option>
+                        <option>Art</option>
+                        <option>Science</option>
+                        <option>Comedy</option>
+                    </select>
+                    <input id="org-time" type="datetime-local" class="w-full p-3 border rounded">
+                    <div class="flex gap-2">
+                        <input id="org-price" type="number" placeholder="Price ($)" class="w-1/3 p-3 border rounded">
+                        <input id="org-cap" type="number" placeholder="Qty" class="w-1/3 p-3 border rounded">
+                        <input id="org-bid" type="number" placeholder="Bid ($)" class="w-1/3 p-3 border rounded">
+                    </div>
+                    <button onclick="publishEvent()"
+                        class="w-full bg-purple-600 text-white font-bold py-3 rounded">Publish</button>
+                    <div id="org-msg" class="hidden p-4 rounded bg-green-100 text-green-700 text-center font-bold">
+                    </div>
+                </div>
+
+                <div id="view-org-stats" class="hidden flex-1 overflow-y-auto space-y-4 fade-in">
+                    <h2 class="text-xl font-bold text-gray-800 mb-2">My Events</h2>
+                    <button onclick="loadOrgStats()" class="text-xs text-blue-600 underline mb-2">Refresh</button>
+                    <div id="org-stats-list" class="space-y-3">Loading...</div>
+                </div>
+            </div>
+        </main>
+
+        <div id="booking-modal"
+            class="fixed inset-0 bg-black bg-opacity-60 hidden items-center justify-center z-[60] p-4">
+            <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+                <h3 class="text-xl font-bold mb-4">Confirm Event Ride</h3>
+                <div class="mb-6 grid grid-cols-2 gap-3">
+                    <label
+                        class="border-2 rounded-xl p-4 cursor-pointer hover:bg-gray-50 has-[:checked]:border-black"><input
+                            type="radio" name="tripType" value="one-way" class="hidden" checked>
+                        <div class="text-sm font-bold text-center">One-Way</div>
+                    </label>
+                    <label
+                        class="border-2 rounded-xl p-4 cursor-pointer hover:bg-gray-50 has-[:checked]:border-black"><input
+                            type="radio" name="tripType" value="round-trip" class="hidden">
+                        <div class="text-sm font-bold text-center">Round-Trip</div>
+                    </label>
+                </div>
+
+                <p class="text-sm font-bold mb-2">Tickets</p>
+                <div class="flex items-center gap-4 mb-6">
+                    <input type="number" id="book-qty" value="1" min="1"
+                        class="w-20 p-2 border rounded text-center font-bold text-lg">
+                    <div class="text-sm text-gray-500"><span id="modal-price">$0</span> / ticket<br><span
+                            id="modal-left" class="text-xs">0 left</span></div>
+                </div>
+
+                <button onclick="confirmEventBooking()"
+                    class="w-full bg-black text-white py-3 rounded-xl font-bold">Confirm</button>
+            </div>
+        </div>
+        <div id="rider-status-sheet"
+            class="absolute bottom-0 left-0 w-full bg-white border-t-2 border-black p-6 transform translate-y-full transition-transform duration-300 shadow-2xl z-50">
+            <h3 id="rss-title" class="text-lg font-bold">Status</h3>
+            <div id="rss-content">
+                <p id="rss-desc" class="text-gray-500 text-sm mt-1">Waiting...</p>
+            </div>
+            <button onclick="closeStatusSheet()"
+                class="mt-4 w-full bg-gray-200 py-2 rounded font-bold text-gray-600">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // CONFIG
+        if (typeof CONFIG === 'undefined') alert("CRITICAL: config.js missing!");
+        let AUTH_MODE = 'signup', ROLE = 'rider', USER = '', LOC = '', LOC_LAT = 0, LOC_LNG = 0, INTEREST = 'Tech', RIDE_ID = null, RETURN_RIDE_ID = null, POLL_INTERVAL = null, DRIVER_POLL_INTERVAL = null, SELECTED_EVENT_ID = null, EVENT_POLL_INTERVAL = null;
+        const DEFAULT_COORDS = [12.9716, 77.5946];
+        const LOC_COORDS = {}; const REJECTED_RIDES = new Set();
+        let map, userMarker, authMap, authMarker, orgMap, orgMarker, setupMap, setupMarker, genMap, pickupMarker, destMarker;
+        let MAP_MODE = 'pickup', DEST_LAT = 0, DEST_LNG = 0, DEST_NAME = '';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setRole('rider');
+            toggleAuthMode('signup');
+            document.getElementById('login-view').classList.remove('hidden');
+            document.getElementById('app-container').classList.add('hidden');
+        });
+        function performLogout() { localStorage.clear(); location.reload(); }
+        function deg2rad(deg) { return deg * (Math.PI / 180); }
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) { const R = 6371; const dLat = deg2rad(lat2 - lat1); const dLon = deg2rad(lon2 - lon1); const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return (R * c).toFixed(1); }
+
+        // --- AUTH ---
+        function toggleAuthMode(m) { AUTH_MODE = m; document.getElementById('tab-login').className = m === 'login' ? "text-black border-b-2 border-black w-1/2 pb-1" : "text-gray-400 w-1/2 pb-1"; document.getElementById('tab-signup').className = m === 'signup' ? "text-black border-b-2 border-black w-1/2 pb-1" : "text-gray-400 w-1/2 pb-1"; document.getElementById('auth-submit-btn').innerText = m === 'login' ? "Login" : "Create Account"; updateFieldVisibility(); }
+        function setRole(r) { ROLE = r; document.getElementById('auth-form').classList.remove('hidden');['rider', 'driver', 'organizer'].forEach(k => document.getElementById(`btn-${k}`).className = k === r ? "py-3 rounded-lg font-bold border-2 border-black bg-black text-white" : "py-3 rounded-lg font-bold border-2 border-transparent bg-gray-100"); updateFieldVisibility(); }
+        function updateFieldVisibility() { document.getElementById('field-interest').classList.toggle('hidden', !(ROLE === 'rider' && AUTH_MODE === 'signup')); }
+
+        async function handleAuth() {
+            localStorage.clear(); RIDE_ID = null; RETURN_RIDE_ID = null;
+            const u = document.getElementById('auth-username').value, p = document.getElementById('auth-password').value;
+            if (!u || !p) return alert("Missing fields");
+            const payload = { username: u, password: p, role: ROLE };
+            if (ROLE === 'rider' && AUTH_MODE === 'signup') payload.interest = document.getElementById('auth-interest').value;
+
+            try {
+                const res = await fetch(`${CONFIG.CORE_API}/api/auth/${AUTH_MODE}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail);
+                USER = u;
+                localStorage.setItem('cr_user', USER); localStorage.setItem('cr_role', ROLE);
+                if (ROLE === 'rider') {
+                    if (data.interest && data.interest !== 'undefined' && data.interest !== 'null') INTEREST = data.interest;
+                    else if (payload.interest) INTEREST = payload.interest;
+                    else INTEREST = 'Tech';
+                    localStorage.setItem('cr_interest', INTEREST);
+                }
+                document.getElementById('login-view').classList.add('hidden');
+                if (ROLE === 'organizer') initApp(); else initSetup();
+            } catch (e) { alert(e.message); }
+        }
+
+        // --- SETUP ---
+        function initSetup() { document.getElementById('setup-view').classList.remove('hidden'); document.getElementById('setup-view').classList.add('flex'); setTimeout(() => { if (!setupMap) { setupMap = L.map('setup-map').setView(DEFAULT_COORDS, 12); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(setupMap); setupMap.on('click', (e) => setSetupLoc(e.latlng.lat, e.latlng.lng, "Pinned Location")); } setupMap.invalidateSize(); }, 500); }
+        function setSetupLoc(lat, lng, name) { if (setupMarker) setupMap.removeLayer(setupMarker); setupMarker = L.marker([lat, lng]).addTo(setupMap); document.getElementById('setup-lat').value = lat; document.getElementById('setup-lng').value = lng; document.getElementById('setup-loc-input').value = name; setupMap.setView([lat, lng], 14); }
+        async function searchSetupLoc() { const q = document.getElementById('setup-loc-input').value; if (!q) return; const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}, Bangalore`); const data = await res.json(); if (data.length > 0) { const d = data[0]; setSetupLoc(parseFloat(d.lat), parseFloat(d.lon), d.display_name.split(',')[0]); } }
+        function detectSetupLoc() { if (!navigator.geolocation) return alert("No GPS"); navigator.geolocation.getCurrentPosition(p => { setSetupLoc(p.coords.latitude, p.coords.longitude, "Current GPS"); }); }
+        function finishSetup() { LOC = document.getElementById('setup-loc-input').value; LOC_LAT = parseFloat(document.getElementById('setup-lat').value); LOC_LNG = parseFloat(document.getElementById('setup-lng').value); if (!LOC_LAT) return alert("Please set your location"); localStorage.setItem('cr_loc', LOC); localStorage.setItem('cr_lat', LOC_LAT); localStorage.setItem('cr_lng', LOC_LNG); document.getElementById('setup-view').classList.add('hidden'); initApp(); }
+
+        // --- MAIN ---
+        async function initApp() {
+            document.getElementById('app-container').classList.remove('hidden'); document.getElementById('role-badge').innerText = ROLE.toUpperCase();
+            document.getElementById('rider-dashboard').classList.add('hidden'); document.getElementById('driver-dashboard').classList.add('hidden'); document.getElementById('organizer-dashboard').classList.add('hidden');
+            if (ROLE === 'rider') {
+                document.getElementById('rider-dashboard').classList.remove('hidden');
+                document.getElementById('rider-interest-display').innerText = INTEREST;
+                document.getElementById('dynamic-interest').value = INTEREST;
+                document.getElementById('gen-pickup').value = LOC || "Current Location";
+                setTimeout(initGenMap, 500); loadRiderEvents(); startEventPolling();
+            }
+            else if (ROLE === 'driver') { document.getElementById('driver-dashboard').classList.remove('hidden'); const toggle = document.getElementById('dash-driver-toggle'); toggle.checked = false; await updateDriverStatus('off'); updateDriverUI('off'); }
+            else { document.getElementById('organizer-dashboard').classList.remove('hidden'); setTimeout(initOrgMap, 500); switchOrgTab('create'); }
+        }
+
+        // --- RIDER LOGIC ---
+        function switchRiderTab(tab) { document.getElementById('view-general').classList.toggle('hidden', tab !== 'general'); document.getElementById('view-events').classList.toggle('hidden', tab !== 'events'); document.getElementById('tab-general').className = tab === 'general' ? "flex-1 py-3 text-center tab-active" : "flex-1 py-3 text-center tab-inactive"; document.getElementById('tab-events').className = tab === 'events' ? "flex-1 py-3 text-center tab-active" : "flex-1 py-3 text-center tab-inactive"; if (tab === 'general') setTimeout(() => genMap.invalidateSize(), 200); }
+        function initGenMap() { if (genMap) return; genMap = L.map('dashboard-map').setView([LOC_LAT, LOC_LNG], 13); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(genMap); pickupMarker = L.marker([LOC_LAT, LOC_LNG], { icon: blueIcon, draggable: true }).addTo(genMap).bindPopup("Pickup").openPopup(); genMap.on('click', (e) => { if (MAP_MODE === 'pickup') { if (pickupMarker) genMap.removeLayer(pickupMarker); pickupMarker = L.marker(e.latlng, { icon: blueIcon }).addTo(genMap); LOC_LAT = e.latlng.lat; LOC_LNG = e.latlng.lng; LOC = "Pinned Pickup"; document.getElementById('gen-pickup').value = LOC; } else { if (destMarker) genMap.removeLayer(destMarker); destMarker = L.marker(e.latlng, { icon: redIcon }).addTo(genMap); DEST_LAT = e.latlng.lat; DEST_LNG = e.latlng.lng; DEST_NAME = "Pinned Dest"; document.getElementById('gen-dest').value = DEST_NAME; document.getElementById('gen-dest-lat').value = DEST_LAT; document.getElementById('gen-dest-lng').value = DEST_LNG; } }); }
+        function setMapMode(mode) { MAP_MODE = mode; if (mode === 'pickup') { document.getElementById('box-pickup').classList.add('input-active'); document.getElementById('box-dest').classList.remove('input-active'); } else { document.getElementById('box-pickup').classList.remove('input-active'); document.getElementById('box-dest').classList.add('input-active'); } }
+        const blueIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
+        const redIcon = new L.Icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png', shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41] });
+        async function searchGenMap(target) { const q = document.getElementById(target === 'pickup' ? 'gen-pickup' : 'gen-dest').value; const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}, Bangalore`); const data = await res.json(); if (data.length > 0) { const d = data[0]; const lat = parseFloat(d.lat), lng = parseFloat(d.lon); if (target === 'pickup') { LOC_LAT = lat; LOC_LNG = lng; LOC = d.display_name.split(',')[0]; document.getElementById('gen-pickup').value = LOC; if (pickupMarker) genMap.removeLayer(pickupMarker); pickupMarker = L.marker([lat, lng], { icon: blueIcon }).addTo(genMap); } else { DEST_LAT = lat; DEST_LNG = lng; DEST_NAME = d.display_name.split(',')[0]; document.getElementById('gen-dest').value = DEST_NAME; document.getElementById('gen-dest-lat').value = lat; document.getElementById('gen-dest-lng').value = lng; if (destMarker) genMap.removeLayer(destMarker); destMarker = L.marker([lat, lng], { icon: redIcon }).addTo(genMap); } genMap.setView([lat, lng], 14); } }
+        async function bookGeneralRide() { if (!DEST_LAT) return alert("Set destination"); document.getElementById('rider-status-sheet').classList.remove('translate-y-full'); const res = await fetch(`${CONFIG.CORE_API}/api/request-ride`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: USER, source_lat: LOC_LAT, source_lng: LOC_LNG, dest_lat: parseFloat(DEST_LAT), dest_lng: parseFloat(document.getElementById('gen-dest-lng').value), source_name: LOC, dest_name: document.getElementById('gen-dest').value }) }); const data = await res.json(); if (res.ok) { RIDE_ID = data.request_id; localStorage.setItem('cr_ride_id', RIDE_ID); startRiderPolling(); } }
+
+        // --- EVENTS ---
+        function updateInterest(val) { INTEREST = val; document.getElementById('rider-interest-display').innerText = val; localStorage.setItem('cr_interest', val); loadRiderEvents(); }
+        async function loadRiderEvents() {
+            try {
+                const res = await fetch(`${CONFIG.EVENT_API}/api/events?interest=${INTEREST}`); const data = await res.json(); const list = document.getElementById('event-list'); list.innerHTML = '';
+                if (data.events.length === 0) { list.innerHTML = '<p class="text-center text-gray-400">No events found.</p>'; }
+                else {
+                    data.events.forEach(evt => {
+                        if (evt.sold >= evt.capacity) return; // Filter Sold Out
+                        const dateStr = new Date(evt.time).toLocaleDateString();
+                        const isMatch = evt.type === INTEREST;
+                        const border = isMatch ? 'border-blue-500 bg-blue-50' : 'border-gray-200';
+                        const badge = isMatch ? '<span class="text-[10px] bg-blue-200 text-blue-800 px-1 rounded mr-2">MATCH</span> ' : '';
+                        list.innerHTML += `<div class="p-4 rounded-xl shadow-sm border ${border} bg-white flex justify-between items-center transition duration-300"><div><div class="flex items-center mb-1">${badge}<h3 class="font-bold text-gray-800">${evt.name}</h3></div><p class="text-xs text-gray-500">📍 ${evt.venue} | ${evt.type}</p><p class="text-xs font-bold text-gray-700 mt-1">📅 ${dateStr} | 🎟️ $${evt.ticket_price}</p><p class="text-[10px] text-green-600 font-bold">${evt.capacity - evt.sold} tickets left</p></div><button onclick="openBookingModal(${evt.id}, '${evt.ticket_price}', '${evt.capacity - evt.sold}')" class="bg-black text-white px-4 py-2 rounded-lg font-bold text-sm">Book</button></div>`;
+                    });
+                }
+            } catch (e) { console.log("Event poll failed"); }
+        }
+        function startEventPolling() { if (EVENT_POLL_INTERVAL) clearInterval(EVENT_POLL_INTERVAL); EVENT_POLL_INTERVAL = setInterval(loadRiderEvents, 5000); }
+
+        function openBookingModal(id, price, left) {
+            SELECTED_EVENT_ID = id;
+            document.getElementById('modal-price').innerText = '$' + price;
+            document.getElementById('modal-left').innerText = left + ' left';
+            document.getElementById('book-qty').max = left;
+            document.getElementById('booking-modal').classList.remove('hidden');
+            document.getElementById('booking-modal').classList.add('flex');
+        }
+        function closeModal() { document.getElementById('booking-modal').classList.add('hidden'); document.getElementById('booking-modal').classList.remove('flex'); }
+        async function confirmEventBooking() {
+            closeModal(); document.getElementById('rider-status-sheet').classList.remove('translate-y-full');
+            const type = document.querySelector('input[name="tripType"]:checked').value;
+            const qty = parseInt(document.getElementById('book-qty').value) || 1;
+            const res = await fetch(`${CONFIG.EVENT_API}/api/events/book`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: USER, event_id: SELECTED_EVENT_ID, user_lat: LOC_LAT, user_lng: LOC_LNG, user_source_name: LOC, trip_type: type, ticket_qty: qty }) });
+            const data = await res.json();
+            if (res.ok) {
+                RIDE_ID = data.ride_to_id; RETURN_RIDE_ID = data.ride_from_id;
+                localStorage.setItem('cr_ride_id', RIDE_ID);
+                if (RETURN_RIDE_ID) localStorage.setItem('cr_return_id', RETURN_RIDE_ID);
+                startRiderPolling();
+            } else { alert(data.detail); }
+        }
+
+        // --- POLLING ---
+        function startRiderPolling() {
+            if (POLL_INTERVAL) clearInterval(POLL_INTERVAL);
+            POLL_INTERVAL = setInterval(async () => {
+                if (!RIDE_ID) return;
+                const res = await fetch(`${CONFIG.CORE_API}/api/ride-status/${RIDE_ID}`);
+                const data = await res.json();
+                document.getElementById('rider-status-sheet').classList.remove('translate-y-full');
+
+                if (data.status === 'matched') {
+                    document.getElementById('rss-title').innerText = "Driver Found!";
+                    document.getElementById('rss-desc').innerText = `${data.driver_info.name} is coming.`;
+                } else if (data.status === 'completed') {
+                    if (RETURN_RIDE_ID) {
+                        clearInterval(POLL_INTERVAL);
+                        document.getElementById('rider-status-sheet').classList.add('translate-y-full');
+                        document.getElementById('rider-dashboard').classList.add('hidden');
+                        document.getElementById('rider-event-mode').classList.remove('hidden');
+                        document.getElementById('evt-return-dest').innerText = LOC;
+                        localStorage.removeItem('cr_ride_id');
+                        RIDE_ID = null;
+                    } else {
+                        clearInterval(POLL_INTERVAL);
+                        document.getElementById('rss-title').innerText = "Completed!";
+                        document.getElementById('rss-content').innerHTML = `<button onclick="resetRiderUI()" class="w-full bg-black text-white py-3 rounded font-bold">OK</button>`;
+                        localStorage.removeItem('cr_ride_id');
+                        localStorage.removeItem('cr_return_id');
+                    }
+                }
+            }, 2000);
+        }
+        async function activateReturnRide() { document.getElementById('rider-event-mode').classList.add('hidden'); document.getElementById('rider-dashboard').classList.remove('hidden'); document.getElementById('rider-status-sheet').classList.remove('translate-y-full'); document.getElementById('rss-title').innerText = "Calling Driver..."; RIDE_ID = RETURN_RIDE_ID; localStorage.setItem('cr_ride_id', RIDE_ID); RETURN_RIDE_ID = null; localStorage.removeItem('cr_return_id'); const res = await fetch(`${CONFIG.CORE_API}/api/ride/activate/${RIDE_ID}`, { method: 'POST' }); if (res.ok) { startRiderPolling(); } }
+        function resetRiderUI() { localStorage.removeItem('cr_ride_id'); localStorage.removeItem('cr_return_id'); location.reload(); }
+        function closeStatusSheet() { document.getElementById('rider-status-sheet').classList.add('translate-y-full'); }
+
+        // --- DRIVER & ORG ---
+        document.getElementById('dash-driver-toggle').addEventListener('change', async function () { const status = this.checked ? 'accepting' : 'off'; await updateDriverStatus(status); updateDriverUI(status); if (this.checked) startDriverPolling(); });
+        async function updateDriverStatus(s) { await fetch(`${CONFIG.CORE_API}/api/register-driver`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ driver_id: USER, name: USER, current_lat: LOC_LAT, current_lng: LOC_LNG, current_loc_name: LOC, status: s }) }); }
+        function updateDriverUI(s) { const t = document.getElementById('dash-status-text'); if (s === 'accepting') { t.innerText = "🟢 ONLINE"; document.getElementById('driver-content').classList.remove('hidden'); document.getElementById('driver-empty-state').classList.remove('hidden'); } else if (s === 'off') { t.innerText = "🔴 OFFLINE"; document.getElementById('driver-content').classList.add('hidden'); document.getElementById('driver-empty-state').classList.add('hidden'); } else { t.innerText = "🚖 BUSY"; document.getElementById('dash-driver-toggle').disabled = true; } }
+        function startDriverPolling() { if (DRIVER_POLL_INTERVAL) clearInterval(DRIVER_POLL_INTERVAL); DRIVER_POLL_INTERVAL = setInterval(async () => { if (!document.getElementById('dash-driver-toggle').checked) return clearInterval(DRIVER_POLL_INTERVAL); const my = await (await fetch(`${CONFIG.CORE_API}/api/driver/my-ride/${USER}`)).json(); if (my.active_ride) { updateDriverStatus('in a drive'); document.getElementById('driver-content').classList.add('hidden'); document.getElementById('driver-active-ride').classList.remove('hidden'); document.getElementById('driver-empty-state').classList.add('hidden'); const r = my.active_ride; document.getElementById('ar-user').innerText = r.user; document.getElementById('ar-from').innerText = r.from; document.getElementById('ar-to').innerText = r.to; RIDE_ID = r.id; } else { document.getElementById('driver-active-ride').classList.add('hidden'); document.getElementById('driver-content').classList.remove('hidden'); document.getElementById('dash-driver-toggle').disabled = false; const pend = await (await fetch(`${CONFIG.CORE_API}/api/driver/pending-rides`)).json(); const list = document.getElementById('driver-requests'); list.innerHTML = ''; if (pend.rides.length > 0) { document.getElementById('driver-empty-state').classList.add('hidden'); const sorted = pend.rides.filter(r => !REJECTED_RIDES.has(r.id)).map(r => { const dist = getDistanceFromLatLonInKm(LOC_LAT, LOC_LNG, r.lat, r.lng); return { ...r, distance: dist }; }).sort((a, b) => a.distance - b.distance); if (sorted.length === 0) document.getElementById('driver-empty-state').classList.remove('hidden'); sorted.forEach(r => { const badge = r.distance < 2.0 ? '<span class="bg-green-200 text-green-800 text-xs px-2 py-1 rounded font-bold">NEARBY</span>' : ''; list.innerHTML += `<div class="bg-white p-4 shadow border-l-4 border-green-500 flex flex-col gap-2"><div class="flex justify-between"><p class="font-bold">${r.from} ➔ ${r.to}</p>${badge}</div><p class="text-xs text-gray-500">${r.distance} km away</p><div class="flex gap-2 mt-2"><button onclick="acceptRide(${r.id})" class="flex-1 bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">ACCEPT</button><button onclick="rejectRide(${r.id})" class="flex-1 bg-gray-200 text-gray-600 py-2 rounded font-bold hover:bg-gray-300">REJECT</button></div></div>`; }); } else { document.getElementById('driver-empty-state').classList.remove('hidden'); } } }, 3000); }
+        async function acceptRide(id) { await fetch(`${CONFIG.CORE_API}/api/driver/accept-ride?ride_id=${id}&driver_id=${USER}`, { method: 'POST' }); }
+        function rejectRide(id) { REJECTED_RIDES.add(id); }
+        async function completeRide() { await fetch(`${CONFIG.CORE_API}/api/driver/complete-ride?ride_id=${RIDE_ID}&driver_id=${USER}`, { method: 'POST' }); }
+
+        // --- ORGANIZER ---
+        function switchOrgTab(tab) { document.getElementById('view-org-create').classList.toggle('hidden', tab !== 'create'); document.getElementById('view-org-stats').classList.toggle('hidden', tab !== 'stats'); document.getElementById('tab-org-create').className = tab === 'create' ? "flex-1 py-3 text-center tab-active" : "flex-1 py-3 text-center tab-inactive"; document.getElementById('tab-org-stats').className = tab === 'stats' ? "flex-1 py-3 text-center tab-active" : "flex-1 py-3 text-center tab-inactive"; if (tab === 'create') setTimeout(() => orgMap.invalidateSize(), 200); if (tab === 'stats') loadOrgStats(); }
+        async function loadOrgStats() {
+            const list = document.getElementById('org-stats-list'); list.innerHTML = "Loading...";
+            try {
+                const res = await fetch(`${CONFIG.EVENT_API}/api/events`); const data = await res.json(); list.innerHTML = '';
+                const myEvents = data.events.filter(e => e.organizer_id === USER);
+                if (myEvents.length === 0) list.innerHTML = "<p class='text-gray-400 text-center'>No events published.</p>";
+                myEvents.forEach(evt => {
+                    const percent = Math.round((evt.sold / evt.capacity) * 100);
+                    const isSoldOut = evt.sold >= evt.capacity ? "<span class='text-red-600 font-bold'>SOLD OUT</span>" : "";
+                    list.innerHTML += `<div class="bg-white p-4 rounded-lg shadow border border-gray-200"><div class="flex justify-between mb-2"><h3 class="font-bold">${evt.name}</h3>${isSoldOut || `<span class="text-green-600 font-bold">${evt.sold} Sold</span>`}</div><div class="w-full bg-gray-200 rounded-full h-2.5"><div class="bg-blue-600 h-2.5 rounded-full" style="width: ${percent}%"></div></div><p class="text-xs text-gray-500 mt-2">${percent}% Capacity (${evt.sold}/${evt.capacity})</p></div>`;
+                });
+            } catch (e) { list.innerHTML = "Error loading stats."; }
+        }
+        function initOrgMap() { if (orgMap) return; orgMap = L.map('org-map').setView(DEFAULT_COORDS, 11); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(orgMap); orgMap.on('click', function (e) { updateOrganizerLocation(e.latlng.lat, e.latlng.lng, "Pinned Venue"); }); }
+        async function searchOrganizerVenue() { const q = document.getElementById('org-venue').value; const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}, Bangalore`); const data = await res.json(); if (data.length > 0) { updateOrganizerLocation(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name.split(',')[0]); } }
+        function updateOrganizerLocation(lat, lng, name) { if (orgMap) { orgMap.setView([lat, lng], 14); if (orgMarker) orgMap.removeLayer(orgMarker); orgMarker = L.marker([lat, lng]).addTo(orgMap); } document.getElementById('org-lat').value = lat; document.getElementById('org-lng').value = lng; document.getElementById('org-venue').value = name; document.getElementById('org-venue-status').innerText = `✅ Set: ${name}`; }
+        async function publishEvent() { const lat = parseFloat(document.getElementById('org-lat').value); const lng = parseFloat(document.getElementById('org-lng').value); if (!lat) return alert("Set venue"); const p = { organizer_id: USER, name: document.getElementById('org-name').value, venue_name: document.getElementById('org-venue').value, venue_lat: lat, venue_lng: lng, event_type: document.getElementById('org-type').value, event_time: document.getElementById('org-time').value + ":00Z", ticket_price: parseFloat(document.getElementById('org-price').value) || 0, total_capacity: parseInt(document.getElementById('org-cap').value) || 100, bid_amount: parseFloat(document.getElementById('org-bid').value) || 0 }; await fetch(`${CONFIG.EVENT_API}/api/organizer/events`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(p) }); document.getElementById('org-msg').innerText = "Published!"; document.getElementById('org-msg').classList.remove('hidden'); setTimeout(() => document.getElementById('org-msg').classList.add('hidden'), 3000); switchOrgTab('stats'); }
+    </script>
+</body>
+
+</html>

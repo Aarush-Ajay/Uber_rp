@@ -10,7 +10,7 @@ ORCHESTRATOR_API_URL = "http://127.0.0.1:8000/api/register-driver"
 TOTAL_DRIVERS = 50 
 
 # These locations must match the Enum keys in your worker scripts
-LOCATIONS = ["Downtown Core", "Central Station", "University Area", "The Suburbs", "Airport Terminal"]
+LOCATIONS = ["Wilson Garden", "Basavangudi", "Koramangala", "Airport"]
 DRIVER_STATUSES = ["accepting", "off"]
 # ---------------------
 
